@@ -18,7 +18,7 @@ function connectToMongo(cb){
         console.log(err) 
     })
 }
-connectToMongo(()=>{});
+connectToMongo(InsertMsgTimes);
 
 function Users(){
     db.collection('users').insertMany([
@@ -63,7 +63,6 @@ async function Frends(){
         console.log(err);
     }
 }
-
 async function Chats(){
     const allUsers = await db.collection('users').find().toArray();
     const chats = [
@@ -151,5 +150,61 @@ async function Chats(){
     })
 
 }
+
+async function InputMsgStatus(){
+    // const allChats = 
+
+    db.collection('chats')
+    .updateMany({},[
+        {$set: {
+            msgs: {$map: {
+                input: '$msgs',
+                as: 'msg',
+                in: {$mergeObjects: ['$$msg', {
+                    status: 'Y'
+                }]}
+                /*
+                    input: "$msgs" → we’re looping through the array called msgs.
+                    as: "msg" → each item in that array will be temporarily referred to as msg.
+                    in: → defines what each new array element should look like.
+                    $mergeObjects → combines two objects together.
+                This line : { $mergeObjects: ["$$msg", { status: "Y" }] } means
+                Take everything from the original message ($$msg) and add a new field status: 'Y'
+                */
+            }}
+        }},
+        {$unset: 'status'}
+    ])
+    .then(response => {
+        console.log(response)
+    })
+    .catch(err => {
+        console.log(err)
+    })
+    // console.log(allChats)
+}
+async function InsertMsgTimes(){
+    await db.collection('chats')
+    .updateMany({},[
+        // {$unset: 'time'},
+        {$set: {
+            msgs:{ $map:{
+                input: '$msgs',
+                as: 'msg',
+                in: {$mergeObjects : ['$$msg', {
+                    time: {
+                        sent: dayjs().toDate(),
+                        delivery: dayjs().toDate(),
+                        seen: dayjs().toDate()
+                    }
+                }]}
+            }}
+        }},
+        {$set: {
+            timeCreated: dayjs().toDate()
+        }}
+    ])
+}
+
 
 module.exports = { connectToMongo }
