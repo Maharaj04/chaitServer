@@ -1,5 +1,6 @@
 const { connectToMongo } = require('./chatDB.js');
 let db;
+const dayjs = require('dayjs')
 function middleConnector(listener){
     connectToMongo((dbresponse, err) => {
         if(err) {
@@ -97,7 +98,10 @@ async function getUserFrends(user){
 async function getChat(user1, user2) {
     try {
         const chat = await db.collection('chats')
-        .findOne({ id: user1.username + "-" + user2.username });
+        .findOne({ $or: [
+            { id: user1.username + "-" + user2.username },
+            { id: user2.username + "-" + user1.username }
+        ]});
         return chat;
     } catch (err) {
         console.error(err);
@@ -105,5 +109,34 @@ async function getChat(user1, user2) {
     }
 }
 
+async function addMsg(msg, frendUsername) {
+    try {
+        const chatId = msg.sender + "-" + frendUsername;
+        const result = await db.collection('chats').updateOne(
+            { $or: [
+                { id: msg.sender+"-"+frendUsername },
+                { id: frendUsername+'-'+msg.sender }
+            ]},
+            { $push:{msgs: msg} }
+        );  // if available add the msg
+        // or create new doc
+        if (result.matchedCount === 0) {
+            console.log("no chat, creating new document...");
+            await db.collection('chats').insertOne({
+                id: chatId,
+                chatUsers: [msg.sender, frendUsername],
+                msgs: [msg],
+                timeCreated: dayjs().toDate(),
+            });
+        }
+        return db.collection('chats').findOne({$or: [
+            { id: msg.sender+"-"+frendUsername },
+            { id: frendUsername+'-'+msg.sender }
+        ]})
+    } catch (err) {
+        console.log("Error in addMsg.catch:", err);
+    }
+}
 
-module.exports = { middleConnector, authenticate, userExists, changeName, getUserFrends, getChat }
+
+module.exports = { middleConnector, authenticate, userExists, changeName, getUserFrends, getChat, addMsg }
