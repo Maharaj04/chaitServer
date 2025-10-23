@@ -140,3 +140,6 @@ async function addMsg(msg, frendUsername) {
 
 
 module.exports = { middleConnector, authenticate, userExists, changeName, getUserFrends, getChat, addMsg }
+
+
+
