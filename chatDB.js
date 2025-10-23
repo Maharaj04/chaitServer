@@ -1,5 +1,12 @@
 // import { MongoClient } from 'mongodb';
 // import { genUserId } from './id_generator.js';
+
+require('dotenv').config();
+// const { MongoClient } = require('mongodb')
+const uri = process.env.MONGO_URI;
+
+console.log('MONGO_URI:', process.env.MONGO_URI);
+ 
 const { MongoClient } = require('mongodb')
 const { genUserId, genChatId } = require('./id_generator.js')
 const dayjs = require('dayjs')
@@ -7,7 +14,7 @@ const dayjs = require('dayjs')
 
 
 function connectToMongo(cb){
-    MongoClient.connect('mongodb://localhost:27017')
+    MongoClient.connect(uri)
     .then(client => {
         console.log('connected to server')
         db = client.db('chatsystem');
