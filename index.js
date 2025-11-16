@@ -9,10 +9,67 @@ const app = express()
 app.use(express.json())
 app.use(cors())
 
+const text = {
+    color: {
+        black:  "\x1b[30m",
+        red:    "\x1b[31m",
+        green:  "\x1b[32m",
+        yellow: "\x1b[33m",
+        blue:   "\x1b[34m",
+        magenta:"\x1b[35m",
+        cyan:   "\x1b[36m",
+        white:  "\x1b[37m",
+
+        // Bright colors
+        brightBlack:   "\x1b[90m",
+        brightRed:     "\x1b[91m",
+        brightGreen:   "\x1b[92m",
+        brightYellow:  "\x1b[93m",
+        brightBlue:    "\x1b[94m",
+        brightMagenta: "\x1b[95m",
+        brightCyan:    "\x1b[96m",
+        brightWhite:   "\x1b[97m",
+    },
+
+    background: {
+        black:  "\x1b[40m",
+        red:    "\x1b[41m",
+        green:  "\x1b[42m",
+        yellow: "\x1b[43m",
+        blue:   "\x1b[44m",
+        magenta:"\x1b[45m",
+        cyan:   "\x1b[46m",
+        white:  "\x1b[47m",
+
+        // Bright backgrounds
+        brightBlack:   "\x1b[100m",
+        brightRed:     "\x1b[101m",
+        brightGreen:   "\x1b[102m",
+        brightYellow:  "\x1b[103m",
+        brightBlue:    "\x1b[104m",
+        brightMagenta: "\x1b[105m",
+        brightCyan:    "\x1b[106m",
+        brightWhite:   "\x1b[107m"
+    },
+
+    format: {
+        reset:       "\x1b[0m",
+        bold:        "\x1b[1m",
+        dim:         "\x1b[2m",
+        italic:      "\x1b[3m",
+        underline:   "\x1b[4m",
+        blink:       "\x1b[5m",
+        reverse:     "\x1b[7m",  // swap fg/bg
+        hidden:      "\x1b[8m",
+        strikethrough: "\x1b[9m"
+    }
+};
+
+
 middleConnector(() => {
     app.listen(PORT, (err) => {
         if(err) console.log('indx.js:: Error in listener: ',err);   //////////////////////
-        console.log('indx.js:: Server is running on http://localhost:'+PORT)   //////////////////////
+        console.log('\x1b[32mindx.js:: Server is running on http://localhost:'+PORT,'\x1b[0m')   //////////////////////
         requests.forEach((request,i) => console.log(`request${i}.username: `,request.username))
         // requests = []
     })
@@ -25,7 +82,7 @@ app.get('{/}', (req, res) =>{
 
 const dataRouter = express.Router();
 app.use('/data', dataRouter);
- 
+
 dataRouter.post('/:username', (req, res) => {
     console.log('-'.repeat(80),'\nindx.js:: dataRouter.post : req.params: ',JSON.stringify(req.params));   //////////////////////
     const { username } = req.params
@@ -109,7 +166,8 @@ dataRouter.put('/:username', (req, res) => {
         
         if(req.body.Body){
             const {msg, frendUsername} = req.body.Body;
-            msg.time.sent = dayjs().toDate();
+            console.log(`\x1b[34mIn send msg?status=2:\nfreind:${frendUsername} seder:${msg.sender} \x1b[0m`)
+            msg.time.sent = dayjs().toDate(); 
             msg.status = 'S';
             addMsg(msg, frendUsername)
             .then(chatReturned => {
@@ -117,15 +175,26 @@ dataRouter.put('/:username', (req, res) => {
                     // JSON.stringify(chatReturned)
                 );
                 console.log('.put: 2A')   //////////////////////
-                searchRequests(msg.sender, frendUsername)
-                res.status(200).json({status: 0, chat: chatReturned});
+                let stats = searchRequests(msg.sender, frendUsername)
+                // if(!stats) 
+                try{
+                    res.status(200).json({status: 0, chat: chatReturned});
+                } catch(err){
+                    console.log(`${text.color.red}In send msg?status=2: Error in sending response :: \n`,err,`${text.format.reset}`)
+                }
             })
             .catch(err => {
                 console.log('in .put action2.catch: ', err)   //////////////////////
             })
         } else {
             console.log('.get: B')   //////////////////////
-            res.status(400).json({status: 3, msg: 'no user sent'});
+            try{
+                
+                res.status(400).json({status: 3, msg: 'no user sent'});
+            } catch(err){
+                console.log(`${text.color.red}In send msg?status=2 inside else: Error in sending response:: \n`,err)
+                
+            }
             // res.status()
         }
     }
@@ -139,55 +208,98 @@ app.use('/chatter', chatRouter);
 // function wait(ms) {
 //     return new Promise(resolve => setTimeout(resolve, ms));
 // }
-let wait = 10;
+let wait = 20;
 class Request{
     constructor(username, req, res){
         this.username = username;
         this.req = req;
         this.res = res;
+        this.timerId = null;
+        this.responded = false;
     }
-    wait(){
+    wait(waitS){
         return new Promise((resolve) => {
-            const id = setTimeout(resolve, wait*1000)
-            timerIds.push(id)
+            this.timerId = setTimeout(resolve, waitS*1000)
+            // timerIds.push(id)
         })
     }
 }
-let timerIds = []
+// let timerIds = []
 let requests = []
+// let responded = false;
 chatRouter.post('/:username', (req, res) => {
     // const { username } = req.params
-    console.log('getting req:: req.params: ',req.params)   //////////////////////
-    console.log('getting req:: req.body: ',req.body)   //////////////////////
+    console.log(`${text.color.yellow}getting req:: req.params: `,req.params,`${text.format.reset}`)   //////////////////////
+    console.log(`${text.color.yellow}getting req:: req.body: `,req.body,`${text.format.reset}`)   //////////////////////
     const { username } = req.body
+    // if (!username) {
+    //     res.status(400).json({status: 3, msg: 'no username in body'});
+    //     return;
+    // }
     // requests.find((request) => request.username === username)
     let userRequest = requests.find((request) => request.username === username)
     if(!userRequest){
-        userRequest = new Request(username,req, res)
+        console.log(`1User ${text.color.green}${username}${text.format.reset} not in requests -- adding it`);
+        userRequest = new Request(username, req, res)
+        userRequest.responded = false;   // created - and not responded yet
         requests.push(userRequest)
+    } else {
+        // If existing, clear old timer to replace with new wait
+        if (userRequest.timerId) clearTimeout(userRequest.timerId);
+        let i = requests.findIndex(r => r === userRequest);
+        requests[i] = new Request(username, req, res)
+        userRequest = requests[i]
+        userRequest.responded = false;
     }
-    // requests.forEach((request,i) => console.log(`request${i}.username: `,request.username))
-    userRequest.wait().then(() => {
-        console.log(`1Waited ${wait} secs - sending the response`)   //////////////////////
-        res.status(203).json({status: 1})
+    requests.forEach((request,i) => console.log(`${text.color.brightCyan}request${i}.username: `,request.username,`${text.format.reset}`))
+    userRequest.wait(wait).then(() => {
+        // if (!userRequest.responded && !userRequest.res.headersSent) {
+        userRequest.responded = true;
+        console.log(`1Waited ${wait} secs for - sending the response to ${text.color.green}${username}${text.format.reset}`)   //////////////////////
+        try{
+            userRequest.res.status(204).json({status: 1})
+        }catch(err){
+            console.log(`${text.color.red}In chatter: : Error in sending response after wating:: \n`,err)
+        }
+        // }
+        let index = requests.findIndex(r => r === userRequest);
+        if (index !== -1) {
+            clearTimeout(requests[index].timerId);
+            requests.splice(index, 1);
+            // timerIds.splice(index, 1);
+        }
     })
-}) 
+    // else {
+    //    res.status(200).json({status: 0})
+    // }
+})
 
 function searchRequests(username, frendUsername){
-    let i = -1;
-    requests.forEach((request,i) => console.log(`request${i}.username: `,request.username))
-    console.log('searchReqs:: username: ',username,'-- -- frendUsername: ',frendUsername)
-    let foundIndex = requests.findIndex(r => r.username === username)
+    // let i = -1;
+    // requests.forEach((request,i) => console.log(`request${i}.username: `,request.username))
+    requests.forEach((request,i) => console.log(`${text.color.cyan}request${i}.username: `,request.username,`${text.format.reset}`))
+    console.log(`${text.color.brightMagenta}searchReqs:: username (msgFrom): ',username,'-- -- frendUsername (msgTo): `,frendUsername,`${text.format.reset}`)
+    let foundIndex = requests.findIndex(r => r.username === frendUsername)
     if(foundIndex !== -1){
-        console.log('searchReqs:: Request found, sending response -- the request: ',found.username)   //////////////////////
-        clearTimeout(timerIds[foundIndex]);
-        requests[i].res.status(200).json({status: 0, frend: frendUsername})
-        requests.splice(index, 1); // remove the handled request
-        timerIds.splice(index, 1); // cleanup
+        const r = requests[foundIndex];
+        console.log(`${text.color.brightMagenta}searchReqs:: Request found, sending response (notification) -- the request was from (frend): `,r.username,`${text.format.reset}`)   //////////////////////
+        clearTimeout(r.timerId);
+        if (!r.responded && !r.res.headersSent) {
+            
+            console.log(`${text.color.brightMagenta}searchReqs:: Request found and not responded, sending response (notification) -- the request was from (frend): `,r.username,`${text.format.reset}`)   //////////////////////
+            try{
+                requests[foundIndex].res.status(200).json({status: 0, frend: username})
+                requests.splice(foundIndex, 1); // remove the handled request
+            } catch(err){
+                console.log(`${text.color.red}In chatter: : Error in found req (someone sent msg):: \n`,err)
+            }
+        }
+        // timerIds.splice(foundIndex, 1); // cleanup
+        return 'res sent';
     } else {
-        console.log('searchReqs:: not found, Doing nothing')   //////////////////////
+        console.log(`${text.color.brightMagenta}searchReqs:: not found, Doing nothing`,`${text.format.reset}`)   //////////////////////
     }
-}
+} 
 
 
 

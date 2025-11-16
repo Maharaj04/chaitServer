@@ -134,7 +134,7 @@ async function addMsg(msg, frendUsername) {
             { id: frendUsername+'-'+msg.sender }
         ]})
     } catch (err) {
-        console.log("Error in addMsg.catch:", err);
+        console.log("%cError in addMsg.catch:",'color:red', err);
     }
 }
 
